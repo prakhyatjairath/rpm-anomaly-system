@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IIoT RPM Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-900 text-white p-10 font-sans">
+	<h1>IF YOU CAN READ THIS, THE FILE IS CONNECTED</h1>
+    
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-2">Live Tachometer Dashboard</h1>
+        <p id="status-text" class="text-green-400 font-bold mb-6 text-xl">System Status: CONNECTING...</p>
+
+        <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+            <canvas id="rpmChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('rpmChart').getContext('2d');
+        const rpmChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [], 
+                datasets: [{
+                    label: 'Live RPM',
+                    data: [], 
+                    borderColor: '#10B981', 
+                    borderWidth: 2,
+                    tension: 0.3 
+                }]
+            },
+            options: {
+                animation: false, 
+                scales: { y: { min: 0, max: 2200 } } 
+            }
+        });
+
+        async function fetchSensorData() {
+            try {
+                const response = await fetch('http://localhost:8000/api/data');
+                const data = await response.json(); 
+
+                const statusText = document.getElementById('status-text');
+                if (data.is_anomaly === true) {
+                    statusText.innerText = "System Status: CRITICAL ANOMALY!";
+                    statusText.className = "text-red-500 font-bold mb-6 text-xl animate-pulse";
+                    rpmChart.data.datasets[0].borderColor = '#EF4444'; 
+                } else {
+                    statusText.innerText = "System Status: NORMAL";
+                    statusText.className = "text-green-400 font-bold mb-6 text-xl";
+                    rpmChart.data.datasets[0].borderColor = '#10B981'; 
+                }
+
+                const currentTime = new Date().toLocaleTimeString();
+                rpmChart.data.labels.push(currentTime);
+                rpmChart.data.datasets[0].data.push(data.rpm_raw); 
+
+                if (rpmChart.data.labels.length > 30) {
+                    rpmChart.data.labels.shift();
+                    rpmChart.data.datasets[0].data.shift();
+                }
+
+                rpmChart.update(); 
+            } catch (error) {
+                console.error("Fetch error:", error);
+            }
+        }
+
+        setInterval(fetchSensorData, 1000);
+    </script>
+</body>
+</html>
